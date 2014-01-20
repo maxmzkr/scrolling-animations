@@ -45,10 +45,6 @@ Word = (function() {
   return Word;
 
 })();
-
-jQuery(function() {
-  return hello.center();
-});
 /**
  * used to determine if the variable is a function
  * @param {any} isFunction the thing to test
