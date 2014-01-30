@@ -3,10 +3,18 @@
  * @param {object} values default values
  * @param {object} page the page the animation group will run on
  */
-AnimationGroup = function(values, page) {
+AnimationGroup = function(values, page) {  
   this.selector = default_val(values.selector || '');
-  this.animations = default_val(values.animations || []);
-  this.page = page;
+  var groupIndex = page.selector_exists(this.selector)
+  if (groupIndex) {
+    this.animations = page.animationGroups[groupIndex].animations;
+    this.word = page.animationGroups[groupIndex].word;
+    this.page = page;
+  } else {
+    this.animations = default_val(values.animations || []);
+    this.word = new Word({selector: this.selector}, page);
+    this.page = page;
+  }
 }
 
 /**
@@ -15,27 +23,32 @@ AnimationGroup = function(values, page) {
  */
 AnimationGroup.prototype.add_animation = function(values) {
   values = values || {};
-  if (this.animations[this.animations.length - 1]) {
-    this.animations[this.animations.length - 1].extremaHigh = false;
-  values.startX = default_val(
-    values.startX, this.animations[this.animations.length - 1].endX);
-  values.startY = default_val(
-    values.startY, this.animations[this.animations.length - 1].endY);
-  values.startRot = default_val(
-    values.startRot, this.animations[this.animations.length - 1].endRot);
-  values.startScroll = default_val(
-    values.startScroll, this.animations[this.animations.length - 1].endScroll);
-  values.xOrigin = default_val(
-    values.xOrigin, this.animations[this.animations.length - 1].xOrigin);
-  values.yOrigin = default_val(
-    values.yOrigin, this.animations[this.animations.length - 1].yOrigin);
-  } else {
-    values.extremaLow = default_val(values.extremaLow, true);
+  var lastAnimation = this.animations[this.animations.length - 1];
+  if (lastAnimation) {
+    if (lastAnimation.endScroll != values.startScroll) {
+      this.add_animation({
+        startScroll: lastAnimation.endScroll,
+        endScroll: values.startScroll
+      });
+    }
   }
 
   values.selector = default_val(values.selector, this.selector);
   values.extremaHigh = default_val(values.extremaHigh, true);
 
-  var animation = new Animation(values, this.page);
+  var animation = new Animation(values, this.page, lastAnimation);
   this.animations.push(animation);
+};
+
+AnimationGroup.prototype.remove_index = function(index) {
+  this.animations.splice(index, 1);
+};
+
+AnimationGroup.prototype.remove_label = function(label) {
+  for (var i = 0; i < this.animations.length; i++) {
+    if (this.animations[i].label == label) {
+      this.remove_index(i);
+      i--;
+    }
+  }
 };

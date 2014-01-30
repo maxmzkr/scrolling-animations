@@ -4,8 +4,8 @@
  */
 Page = function(values) {
   values = values || {};
-  this.minWidth = values.minWidth || 500;
-  this.maxWidth = values.maxWidth || 500;
+  this.minWidth = values.minWidth || 800;
+  this.maxWidth = values.maxWidth || 800;
   this.animations = values.animations || [];
   this.animationGroups = values.animationGroups || [];
   this.animationOffset = values.animationOffset || 100;
@@ -24,63 +24,26 @@ Page.prototype.page_center = function() {
 }
 
 /**
- * center object on page
- * @param {string} selector the value of the selector of the object
- * @param {number} offset the offset relative to put the center of the obj
- */
-Page.prototype.center = function(selector, offset) {
-  offset = offset || 0;
-  var page = this;
-  $(selector).each(
-    function() {
-      var width = $(this).width();
-      var pageWidth = $(window).width();
-      if ($(window).width() < page.minWidth) {
-        pageWidth = page.minWidth;
-      }
-      var position = pageWidth/2 + offset;
-      position = position - width/2;
-      $(this).css({'left': position});
-    }
-  );
-};
-
-/**
- * used to center a word
- * @param {string} selector selctor to center
- */
-Page.prototype.center_word = function(selector) {
-  var wordWidth = 0;
-  var cumWidth = [];
-  var page = this;
-  $(selector).each(
-    function() {
-      cumWidth.push(wordWidth);
-      wordWidth += $(this).width();
-    }
-  );
-  var i = 0;
-  $(selector).each(
-    function() {
-      var width = $(this).width();
-      var pageWidth = $(window).width();
-      if ($(window).width() < page.minWidth) {
-        pageWidth = page.minWidth;
-      }
-      var position = -1*wordWidth/2 + cumWidth[i] + pageWidth/2;
-      $(this).css({'left': position});
-      i++;
-    }
-  );
-};
-
-/**
  * used to add an animation
  * @param {object} values default value for animation
  */
 Page.prototype.add_animation = function(values) {
   var animation = new Animation(values, this);
   this.animations.push(animation);
+  this.max_scroll();
+};
+
+/**
+ * used to see if the selector exists already
+ * @param {string} selector the selector being added
+ */
+Page.prototype.selector_exists = function(selector) {
+  for (var i = 0; i < this.animationGroups.length; i++) {
+    if (this.animationGroups[i].selector == selector) {
+      return i;
+    }
+  };
+  return false;
 };
 
 /**
@@ -90,30 +53,13 @@ Page.prototype.add_animation = function(values) {
 Page.prototype.add_animation_group = function(values) {
   var animationGroup = new AnimationGroup(values, this);
   this.animationGroups.push(animationGroup);
-  console.log('added');
+  this.max_scroll();
 }
 
 /**
  * used to animation the animations
  */
 Page.prototype.animate = function() {
-  this.maxScroll = 0;
-  // find the max scroll
-  for (var i = 0; i < this.animations.length; i++) {
-    var animation = this.animations[i];
-    page.max_scroll(animation.endScroll);
-  }
-
-  for (var i = 0; i < this.animationGroups.length; i++) {
-    var animationGroup = this.animationGroups[i];
-    for (var j = 0; j < animationGroup.animations.length; j++) {
-      var animation = animationGroup.animations[j];
-      this.max_scroll(animation.endScroll);
-    }
-  }
-
-  $('.page-contents').height(this.maxScroll + $(window).height() + this.animationOffset);
-
   // Go through each animation
   for (var i = 0; i < this.animations.length; i++) {
     // get all the values into shorter variables
@@ -136,31 +82,63 @@ Page.prototype.animate = function() {
  * @param {object} animation the animation to animate
  */
 Page.prototype.animate_animation = function(animation) {
-  // get all the values into shorter variables
-  var selector = animation.selector;
-  var startX = animation.startX;
-  var endX = animation.endX;
-  var startY = animation.startY;
-  var endY = animation.endY;
-  var startRot = animation.startRot;
-  var endRot = animation.endRot;
+  if (animation.should_animate()) {
+    // get all the values into shorter variables
+    var selector = animation.selector;
 
-  // calculate the x and y
-  var left = animation.get_x();
-  var top = animation.get_y();
-  var rot = animation.get_value(startRot, endRot, this.rotEase);
+    // calculate the x and y
+    var left = animation.get_x();
+    var top = animation.get_y();
+    var rot = animation.get_rot();
+    var alpha = animation.get_alpha();
+    var color = animation.get_color();
+    var scale = animation.get_scale();
+    if (color) {
+      color = Math.round(color);
+      color = color.toString(16);
+    }
 
-  $(selector).css(
-    {'left': left,
-     'top': top,
-     'transform': 'rotate(' + rot + 'deg)',
-     '-ms-transform': 'rotate(' + rot + 'deg)',
-     '-webkit-transform': 'rotate(' + rot + 'deg)'}
-  );
+    $(selector).css(
+      {'left': left,
+       'top': top,
+       'transform': 'rotate(' + rot + 'deg)' +
+          'scale(' + scale + ',' + scale + ')',
+       '-ms-transform': 'rotate(' + rot + 'deg)' +
+          'scale(' + scale + ',' + scale + ')',
+       '-webkit-transform': 'rotate(' + rot + 'deg)' +
+          'scale(' + scale + ',' + scale + ')',
+       'opacity': alpha,
+       'filter': 'opacity(alpha=' + alpha*100 + ')',
+       'color': '#' + color}
+    );
+  }
 }
 
 Page.prototype.max_scroll = function(scroll) {
-  if (scroll > this.maxScroll) {
-    this.maxScroll = scroll;
+  this.maxScroll = 0;
+  // find the max scroll
+  for (var i = 0; i < this.animations.length; i++) {
+    var animation = this.animations[i];
+    var scroll = animation.endScroll;
+    page.max_scroll(animation.endScroll);
+  }
+
+  for (var i = 0; i < this.animationGroups.length; i++) {
+    var animationGroup = this.animationGroups[i];
+    for (var j = 0; j < animationGroup.animations.length; j++) {
+      var animation = animationGroup.animations[j];
+      var scroll = animation.endScroll;
+      if (scroll > this.maxScroll) {
+        this.maxScroll = scroll;
+      }
+    }
+  }
+
+  $('.page-contents').height(this.maxScroll + $(window).height() + this.animationOffset);
+};
+
+Page.prototype.remove_label = function(label) {
+  for (var i = 0; i < this.animationGroups.length; i++) {
+    this.animationGroups[i].remove_label(label);
   }
 };

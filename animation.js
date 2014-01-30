@@ -14,6 +14,11 @@ Word = (function() {
     this.yOrigin = (_ref4 = values.yOrigin) != null ? _ref4 : 0;
   }
 
+  /**
+   * Will return the x's of all the ids when centered
+   */
+
+
   Word.prototype.center = function() {
     var cumWidth, cumWidthLast, elem, widths;
     cumWidth = 0;
@@ -46,6 +51,22 @@ Word = (function() {
 
 })();
 /**
+ * used to get the hex value of a number
+ */
+var hexDigits = new Array
+        ("0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"); 
+
+//Function to convert hex format to a rgb color
+function rgb2hex(rgb) {
+  rgb = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  return parseInt("0x" + hex(rgb[1]) + hex(rgb[2]) + hex(rgb[3]));
+}
+
+function hex(x) {
+  return isNaN(x) ? "00" : hexDigits[(x - x % 16) / 16] + hexDigits[x % 16];
+}
+
+/**
  * used to determine if the variable is a function
  * @param {any} isFunction the thing to test
  */
@@ -73,36 +94,94 @@ default_val = function(override, defaultVal) {
  * @param {object} values default values
  * @param {object} page the page to run this animation on
  */
-Animation = function(values, page) {
+Animation = function(values, page, lastAnimation) {
   values = default_val(values, {});
   this.debug = default_val(values.debug, false);
   
   // this is used to create the default keyword values
-  // apish crap here
+  // api-ish crap here
   this.default_animation(values);
   this.default_x_origin(values);
   this.default_y_origin(values);
 
+  if (lastAnimation) {
+    // set default vals based on last animation
+    // not the last animation should not continue past
+    lastAnimation.extremaHigh = false;
+    // default value is the end x of the last animation
+    values.startX = default_val(
+      values.startX, lastAnimation.endX);
+    // default y values is the end y of the last animation
+    values.startY = default_val(
+      values.startY, lastAnimation.endY);
+    // default start rotations is the end rot of the last animation
+    values.startRot = default_val(
+      values.startRot, lastAnimation.endRot);
+    // default start scale is the end rot of the last animation
+    values.startScale = default_val(
+      values.startScale, lastAnimation.startScale);
+    // default start color is the end rot of the last animation
+    values.startColor = default_val(
+      values.startColor, lastAnimation.endColor);
+    // start scroll is the last animation
+    values.startScroll = default_val(
+      values.startScroll, lastAnimation.endScroll);
+    // xOrigin is equal to the lasts
+    values.xOrigin = default_val(
+      values.xOrigin, lastAnimation.xOrigin);
+    // yOrigin is equal to the lasts
+    values.yOrigin = default_val(
+      values.yOrigin, lastAnimation.yOrigin);
+    // detect gaps. push a filler if there is one
+  } else {
+    values.extremaLow = default_val(values.extremaLow, true);
+  }
 
+  // selector to use animation on
   this.selector = default_val(values.selector, ''); 
-  this.startX = default_val(values.startX, 0);
-  this.startY = default_val(values.startY, 0);
-  this.endX = default_val(values.endX, 0);
-  this.endY = default_val(values.endY, 0);
+
+  // startScroll, value in pixels to start the animation at
+  // endScroll, value in pixels to end the animation at
+  // extremaLow, keep first value even if before startScroll
+  // extremaHigh, keep last value even if before endScroll
   this.startScroll = default_val(values.startScroll, 0);
   this.endScroll = default_val(values.endScroll, 0);
-  this.type = default_val(values.type, 'linear');
-  this.xCenter = default_val(values.xCenter, true);
-  this.yCenter = default_val(values.yCenter, false);
-  this.xOrigin = default_val(values.xOrigin, 0);
-  this.yOrigin = default_val(values.yOrigin, 0);
   this.extremaLow = default_val(values.extremaLow, false);
   this.extremaHigh = default_val(values.extremaHigh, false);
-  this.startRot = default_val(values.startRot, 0);
-  this.endRot = default_val(values.endRot, 0);
+
+  this.type = default_val(values.type, 'linear');
+
+  this.startX = default_val(values.startX, 0);
+  this.endX = default_val(values.endX, this.startX);
   this.xEase = default_val(values.xEase, 'ease');
+  this.xCenter = default_val(values.xCenter, true);
+
+  this.startY = default_val(values.startY, 0);
+  this.endY = default_val(values.endY, this.startY);
   this.yEase = default_val(values.yEase, 'ease');
-  this.rotEase = default_val(values.rotEase, 'ease');
+  this.yCenter = default_val(values.yCenter, false);
+
+  this.startRot = default_val(values.startRot, 0);
+  this.endRot = default_val(values.endRot, this.startRot);
+  this.rotEase = default_val(values.rotEase, false);
+
+  this.startScale = default_val(values.startScale, 1);
+  this.endScale = default_val(values.endScale, this.startScale);
+  this.scaleEase = default_val(values.scaleEase, false);
+
+  this.startColor = default_val(values.startColor, rgb2hex($(this.selector).css('color')));
+  this.endColor = default_val(values.endColor, rgb2hex($(this.selector).css('color')));
+  this.colorEase = default_val(values.colorEase, 'ease')
+
+  this.startAlpha = default_val(values.startAlpha, 1);
+  this.endAlpha = default_val(values.endAlpha, this.startAlpha);
+  this.alphaEase = default_val(values.alphaEase, 'ease');
+  
+  this.xOrigin = default_val(values.xOrigin, 0);
+  this.yOrigin = default_val(values.yOrigin, 0);
+
+  this.label = default_val(values.label, '');
+  
   this.page = page;
 };
 
@@ -117,44 +196,104 @@ Animation.prototype.default_animation = function(values) {
     // fly out bottom animation
     // default for fly out
     var self = this;
-    values.endX = default_val(values.startX, 0);
+    values.endX = default_val(values.endX, values.startX);
     values.endY = default_val(values.endY,
       function() {
         return $(window).height() + self.get_y_origin();
       }
     );
-    values.xEase = default_val(values.xEase, false);
+    values.xEase = default_val(values.xEase, true);
   } else if (values.defaultAnimation == 'flyout top') {
     // flyout top animation
     var self = this;
-    values.endX = default_val(values.startX, 0);
+    values.endX = default_val(values.endX, values.startX);
     values.endY = default_val(values.endY,
       function() {
-        return -1*$(window).height() - self.get_y_origin();
+        return self.get_y_origin() - $(self.selector).height();
       }
     );
-    values.xEase = default_val(values.xEase, false);
+    values.xEase = default_val(values.xEase, true);
   } else if (values.defaultAnimation == 'flyout left') {
     // flyout left animation
     var self = this;
-    values.endY = default_val(values.startY, 0);
+    values.endY = default_val(values.endY, values.startY);
     values.endX = default_val(values.endX,
       function() {
-        return -1*$(window).width() - self.get_x_origin();
+        return self.get_x_origin() - $(self.selector).width() - $(window).width()/2;
       }
     );
-    values.yEase = default_val(values.yEase, false);
+    values.yEase = default_val(values.yEase, true);
   } else if (values.defaultAnimation == 'flyout right') {
     // flyout right animation
     var self = this;
-    values.endY = default_val(values.startY, 0);
+    values.endY = default_val(values.endY, values.startY);
     values.endX = default_val(values.endX,
       function() {
         return $(window).width() + self.get_x_origin();
       }
     );
-    values.yEase = default_val(values.yEase, false);
-    // flyout top animation
+    values.yEase = default_val(values.yEase, true);
+  } if (values.defaultAnimation == 'flyin bottom' ||
+      values.defaultAnimation == 'flyin') {
+    // fly out bottom animation
+    // default for fly out
+    var self = this;
+    values.endX = default_val(values.endX, values.startX);
+    values.startY = default_val(values.startY,
+      function() {
+        return $(window).height() + self.get_y_origin();
+      }
+    );
+    values.xEase = default_val(values.xEase, true);
+  } else if (values.defaultAnimation == 'flyin top') {
+    // flyin top animation
+    var self = this;
+    values.endX = default_val(values.endX, values.startX);
+    values.startY = default_val(values.startY,
+      function() {
+        return self.get_y_origin() - $(self.selector).height();
+      }
+    );
+    values.xEase = default_val(values.xEase, true);
+  } else if (values.defaultAnimation == 'flyin left') {
+    // flyin left animation
+    var self = this;
+    values.endY = default_val(values.endY, values.startY);
+    values.startX = default_val(values.startX,
+      function() {
+        return self.get_x_origin() - $(self.selector).width() - $(window).width()/2;
+      }
+    );
+    values.yEase = default_val(values.yEase, true);
+  } else if (values.defaultAnimation == 'flyin right') {
+    // flyin right animation
+    var self = this;
+    values.endY = default_val(values.endY, values.startY);
+    values.startX = default_val(values.startX,
+      function() {
+        return $(window).width()/2 + self.get_x_origin();
+      }
+    );
+    values.yEase = default_val(values.yEase, true);
+  } else if (values.defaultAnimation == 'fade in') {
+    // fade in animation
+    var self = this;
+    values.startAlpha = default_val(values.startAlpha, 0);
+    values.endAlpha = default_val(values.endAlpha, 1);
+    values.alphaEase = default_val(values.alphaEase, true);
+  } else if (values.defaultAnimation == 'fade out') {
+    // fade in animation
+    var self = this;
+    values.startAlpha = default_val(values.startAlpha, 1);
+    values.endAlpha = default_val(values.endAlpha, 0);
+    values.alphaEase = default_val(values.alphaEase, true);
+  } else if (values.defaultAnimation == 'spinin clockwise') {
+    // fade in animation
+    var self = this;
+    values.startRot = default_val(values.startRot, 0);
+    values.endRot = default_val(values.endRot, 360*5);
+    values.startScale = default_val(values.startScale, 0);
+    values.endScale = default_val(values.endScale, 1);
   }
 }
 
@@ -179,7 +318,6 @@ Animation.prototype.default_y_origin = function(values) {
   if (values.yOrigin == 'center') {
     var self = this;
     values.yOrigin = function() {
-      console.log($(self.selector).height());
       return $(self.selector).height()/2;
     }
   }
@@ -197,7 +335,6 @@ Animation.prototype.get_scroll = function() {
   if (scroll < this.startScroll && this.extremaLow == true) {
     scroll = this.startScroll;
   }
-  console.log(scroll);
   return scroll;
 }
 
@@ -273,8 +410,38 @@ Animation.prototype.get_y = function() {
  * used to get the rotation value
  */
 Animation.prototype.get_rot = function() {
-  var rot = this.get_value(this.startRot, this.endRot, this.rotEase);
+  return this.get_value(this.startRot, this.endRot, this.rotEase);
 }
+
+/**
+ * used to get the scale value
+ */
+Animation.prototype.get_scale = function() {
+  return this.get_value(this.startScale, this.endScale, this.scaleEase);
+}
+
+/**
+ * used to get the color
+ */
+Animation.prototype.get_color = function() {
+  var startR = (this.startColor & 0xFF0000) >> 16;
+  var endR = (this.endColor & 0xFF0000) >> 16;
+  var startG = (this.startColor & 0x00FF00) >> 8;
+  var endG = (this.endColor & 0x00FF00) >> 8;
+  var startB = (this.startColor & 0x0000FF) >> 0;
+  var endB = (this.endColor & 0x0000FF) >> 0;
+  var r = this.get_value(startR, endR, this.colorEase);
+  var g = this.get_value(startG, endG, this.colorEase);
+  var b = this.get_value(startB, endB, this.colorEase);
+  return (r << 16) + (g << 8) + b;
+}
+
+/**
+ * used to get the alpha value
+ */
+Animation.prototype.get_alpha = function() {
+  return this.get_value(this.startAlpha, this.endAlpha, this.alphaEase);
+};
 
 /**
  * used to get the y value for the animation
@@ -284,66 +451,64 @@ Animation.prototype.get_value = function(startValue, endValue, ease) {
   var startScroll = this.startScroll;
   var endScroll = this.endScroll;
   var scroll = this.get_scroll();
-  if (this.should_animate()) {
-    if (is_function(startValue)) {
-      startValue = startValue.call();
-    }
-    if (is_function(endValue)) {
-      endValue = endValue.call();
-    }
-    if (isString(startValue)) {
-      if (startValue.match(/[0-9]*\.?[0-9]+%/)) {
-        var percent = parseFloat(startValue);
-        percent = percent/100;
-        startValue = $(window).height()*percent;
-      }
-    }
-    if (isString(endValue)) {
-      if (endValue.match(/[0-9]*\.?[0-9]+%/)) {
-        var percent = parseFloat(endValue);
-        percent = percent/100;
-        endValue = $(window).height()*percent;
-      }
-    }
 
-    var t = (scroll - startScroll)/(endScroll - startScroll);
-    var value;
-
-    if (isString(ease) && ease == 'ease') {
-      // cubic function
-      var p0 = 0;
-      var p1 = 0;
-      var p2 = 0;
-      var p3 = 1;
-      var mult = (endValue - startValue);
-      var offset = startValue;
-      p0 *= mult;
-      p1 *= mult;
-      p2 *= mult;
-      p3 *= mult;
-      value =
-        (1 - t)*p0 +
-        3*Math.pow(1 - t, 2)*t*p1 +
-        3*(1 - t)*Math.pow(t, 2)*p2 +
-        Math.pow(t, 3)*p3;
-      value += offset;
-    } else {
-      // get initial x value
-      value = startValue +
-              (endValue - startValue)*t;
-    }
-    return value;
+  if (is_function(startValue)) {
+    startValue = startValue.call();
   }
+  if (is_function(endValue)) {
+    endValue = endValue.call();
+  }
+  if (isString(startValue)) {
+    if (startValue.match(/[0-9]*\.?[0-9]+%/)) {
+      var percent = parseFloat(startValue);
+      percent = percent/100;
+      startValue = $(window).height()*percent;
+    }
+  }
+  if (isString(endValue)) {
+    if (endValue.match(/[0-9]*\.?[0-9]+%/)) {
+      var percent = parseFloat(endValue);
+      percent = percent/100;
+      endValue = $(window).height()*percent;
+    }
+  }
+
+
+  var t = (scroll - startScroll)/(endScroll - startScroll);
+  var value;
+
+  if (isString(ease) && ease == 'ease') {
+    value = ease_func([0, 0.25, 0.25, 1], t, startValue, endValue);
+  } else if (isString(ease) && ease == 'easeOut') {
+    value = ease_func([0, 0.80, 0.90, 1], t, startValue, endValue);
+  } else if (isString(ease) && ease == 'easeBounce') {
+    value = ease_func([0, 0.3, 3.6, -2.6, 3.4, 0.1, 1], t, startValue, endValue);
+  } else if (Object.prototype.toString.call(ease) === '[object Array]') {
+    value = ease_func(ease, t, startValue, endValue);
+  } else {
+    // get initial x value
+    value = startValue +
+            (endValue - startValue)*t;
+  }
+  return value;
 };
 /**
  * used to group animations better ex: first and last auto extrema
  * @param {object} values default values
  * @param {object} page the page the animation group will run on
  */
-AnimationGroup = function(values, page) {
+AnimationGroup = function(values, page) {  
   this.selector = default_val(values.selector || '');
-  this.animations = default_val(values.animations || []);
-  this.page = page;
+  var groupIndex = page.selector_exists(this.selector)
+  if (groupIndex) {
+    this.animations = page.animationGroups[groupIndex].animations;
+    this.word = page.animationGroups[groupIndex].word;
+    this.page = page;
+  } else {
+    this.animations = default_val(values.animations || []);
+    this.word = new Word({selector: this.selector}, page);
+    this.page = page;
+  }
 }
 
 /**
@@ -352,37 +517,43 @@ AnimationGroup = function(values, page) {
  */
 AnimationGroup.prototype.add_animation = function(values) {
   values = values || {};
-  if (this.animations[this.animations.length - 1]) {
-    this.animations[this.animations.length - 1].extremaHigh = false;
-  values.startX = default_val(
-    values.startX, this.animations[this.animations.length - 1].endX);
-  values.startY = default_val(
-    values.startY, this.animations[this.animations.length - 1].endY);
-  values.startRot = default_val(
-    values.startRot, this.animations[this.animations.length - 1].endRot);
-  values.startScroll = default_val(
-    values.startScroll, this.animations[this.animations.length - 1].endScroll);
-  values.xOrigin = default_val(
-    values.xOrigin, this.animations[this.animations.length - 1].xOrigin);
-  values.yOrigin = default_val(
-    values.yOrigin, this.animations[this.animations.length - 1].yOrigin);
-  } else {
-    values.extremaLow = default_val(values.extremaLow, true);
+  var lastAnimation = this.animations[this.animations.length - 1];
+  if (lastAnimation) {
+    if (lastAnimation.endScroll != values.startScroll) {
+      this.add_animation({
+        startScroll: lastAnimation.endScroll,
+        endScroll: values.startScroll
+      });
+    }
   }
 
   values.selector = default_val(values.selector, this.selector);
   values.extremaHigh = default_val(values.extremaHigh, true);
 
-  var animation = new Animation(values, this.page);
+  var animation = new Animation(values, this.page, lastAnimation);
   this.animations.push(animation);
-};/**
+};
+
+AnimationGroup.prototype.remove_index = function(index) {
+  this.animations.splice(index, 1);
+};
+
+AnimationGroup.prototype.remove_label = function(label) {
+  for (var i = 0; i < this.animations.length; i++) {
+    if (this.animations[i].label == label) {
+      this.remove_index(i);
+      i--;
+    }
+  }
+};
+/**
  * Page object
  * @param {object} values default values
  */
 Page = function(values) {
   values = values || {};
-  this.minWidth = values.minWidth || 500;
-  this.maxWidth = values.maxWidth || 500;
+  this.minWidth = values.minWidth || 800;
+  this.maxWidth = values.maxWidth || 800;
   this.animations = values.animations || [];
   this.animationGroups = values.animationGroups || [];
   this.animationOffset = values.animationOffset || 100;
@@ -401,63 +572,26 @@ Page.prototype.page_center = function() {
 }
 
 /**
- * center object on page
- * @param {string} selector the value of the selector of the object
- * @param {number} offset the offset relative to put the center of the obj
- */
-Page.prototype.center = function(selector, offset) {
-  offset = offset || 0;
-  var page = this;
-  $(selector).each(
-    function() {
-      var width = $(this).width();
-      var pageWidth = $(window).width();
-      if ($(window).width() < page.minWidth) {
-        pageWidth = page.minWidth;
-      }
-      var position = pageWidth/2 + offset;
-      position = position - width/2;
-      $(this).css({'left': position});
-    }
-  );
-};
-
-/**
- * used to center a word
- * @param {string} selector selctor to center
- */
-Page.prototype.center_word = function(selector) {
-  var wordWidth = 0;
-  var cumWidth = [];
-  var page = this;
-  $(selector).each(
-    function() {
-      cumWidth.push(wordWidth);
-      wordWidth += $(this).width();
-    }
-  );
-  var i = 0;
-  $(selector).each(
-    function() {
-      var width = $(this).width();
-      var pageWidth = $(window).width();
-      if ($(window).width() < page.minWidth) {
-        pageWidth = page.minWidth;
-      }
-      var position = -1*wordWidth/2 + cumWidth[i] + pageWidth/2;
-      $(this).css({'left': position});
-      i++;
-    }
-  );
-};
-
-/**
  * used to add an animation
  * @param {object} values default value for animation
  */
 Page.prototype.add_animation = function(values) {
   var animation = new Animation(values, this);
   this.animations.push(animation);
+  this.max_scroll();
+};
+
+/**
+ * used to see if the selector exists already
+ * @param {string} selector the selector being added
+ */
+Page.prototype.selector_exists = function(selector) {
+  for (var i = 0; i < this.animationGroups.length; i++) {
+    if (this.animationGroups[i].selector == selector) {
+      return i;
+    }
+  };
+  return false;
 };
 
 /**
@@ -467,30 +601,13 @@ Page.prototype.add_animation = function(values) {
 Page.prototype.add_animation_group = function(values) {
   var animationGroup = new AnimationGroup(values, this);
   this.animationGroups.push(animationGroup);
-  console.log('added');
+  this.max_scroll();
 }
 
 /**
  * used to animation the animations
  */
 Page.prototype.animate = function() {
-  this.maxScroll = 0;
-  // find the max scroll
-  for (var i = 0; i < this.animations.length; i++) {
-    var animation = this.animations[i];
-    page.max_scroll(animation.endScroll);
-  }
-
-  for (var i = 0; i < this.animationGroups.length; i++) {
-    var animationGroup = this.animationGroups[i];
-    for (var j = 0; j < animationGroup.animations.length; j++) {
-      var animation = animationGroup.animations[j];
-      this.max_scroll(animation.endScroll);
-    }
-  }
-
-  $('.page-contents').height(this.maxScroll + $(window).height() + this.animationOffset);
-
   // Go through each animation
   for (var i = 0; i < this.animations.length; i++) {
     // get all the values into shorter variables
@@ -513,31 +630,102 @@ Page.prototype.animate = function() {
  * @param {object} animation the animation to animate
  */
 Page.prototype.animate_animation = function(animation) {
-  // get all the values into shorter variables
-  var selector = animation.selector;
-  var startX = animation.startX;
-  var endX = animation.endX;
-  var startY = animation.startY;
-  var endY = animation.endY;
-  var startRot = animation.startRot;
-  var endRot = animation.endRot;
+  if (animation.should_animate()) {
+    // get all the values into shorter variables
+    var selector = animation.selector;
 
-  // calculate the x and y
-  var left = animation.get_x();
-  var top = animation.get_y();
-  var rot = animation.get_value(startRot, endRot, this.rotEase);
+    // calculate the x and y
+    var left = animation.get_x();
+    var top = animation.get_y();
+    var rot = animation.get_rot();
+    var alpha = animation.get_alpha();
+    var color = animation.get_color();
+    var scale = animation.get_scale();
+    if (color) {
+      color = Math.round(color);
+      color = color.toString(16);
+    }
 
-  $(selector).css(
-    {'left': left,
-     'top': top,
-     'transform': 'rotate(' + rot + 'deg)',
-     '-ms-transform': 'rotate(' + rot + 'deg)',
-     '-webkit-transform': 'rotate(' + rot + 'deg)'}
-  );
+    $(selector).css(
+      {'left': left,
+       'top': top,
+       'transform': 'rotate(' + rot + 'deg)' +
+          'scale(' + scale + ',' + scale + ')',
+       '-ms-transform': 'rotate(' + rot + 'deg)' +
+          'scale(' + scale + ',' + scale + ')',
+       '-webkit-transform': 'rotate(' + rot + 'deg)' +
+          'scale(' + scale + ',' + scale + ')',
+       'opacity': alpha,
+       'filter': 'opacity(alpha=' + alpha*100 + ')',
+       'color': '#' + color}
+    );
+  }
 }
 
 Page.prototype.max_scroll = function(scroll) {
-  if (scroll > this.maxScroll) {
-    this.maxScroll = scroll;
+  this.maxScroll = 0;
+  // find the max scroll
+  for (var i = 0; i < this.animations.length; i++) {
+    var animation = this.animations[i];
+    var scroll = animation.endScroll;
+    page.max_scroll(animation.endScroll);
   }
+
+  for (var i = 0; i < this.animationGroups.length; i++) {
+    var animationGroup = this.animationGroups[i];
+    for (var j = 0; j < animationGroup.animations.length; j++) {
+      var animation = animationGroup.animations[j];
+      var scroll = animation.endScroll;
+      if (scroll > this.maxScroll) {
+        this.maxScroll = scroll;
+      }
+    }
+  }
+
+  $('.page-contents').height(this.maxScroll + $(window).height() + this.animationOffset);
+};
+
+Page.prototype.remove_label = function(label) {
+  for (var i = 0; i < this.animationGroups.length; i++) {
+    this.animationGroups[i].remove_label(label);
+  }
+};
+// Generated by CoffeeScript 1.4.0
+var ease_bezier, ease_func, fact;
+
+fact = function(n) {
+  if (n > 0) {
+    return n * fact(n - 1);
+  }
+  return 1;
+};
+
+ease_func = function(ps, t, start, end) {
+  var mult, offset, value;
+  mult = end - start;
+  offset = start;
+  value = ease_bezier(ps, t);
+  value *= mult;
+  return value += offset;
+};
+
+ease_bezier = function(ps, t) {
+  var eq, i, value, _i, _ref;
+  value = 0;
+  eq = '';
+  for (i = _i = 0, _ref = ps.length; _i < _ref; i = _i += 1) {
+    value += fact(ps.length - 1) / (fact(ps.length - 1 - i) * fact(i)) * Math.pow(1 - t, ps.length - 1 - i) * Math.pow(t, i) * ps[i];
+    eq = eq + (ps.length - 1) + '!/(' + (ps.length - 1 - i) + '!*' + i + '!)*' + '(1 - t)^' + (ps.length - 1 - i) + '*t^' + i + '*' + ps[i] + ' + ';
+  }
+  return value;
+};
+// Generated by CoffeeScript 1.4.0
+
+$.fn.scale = function() {
+  var transform;
+  transform = $(this).css('transform') || 0;
+  console.log(transform);
+  transform = transform.substring(transform.indexOf('scale(') + 6, transform.indexOf(')', transform.indexOf('scale(')));
+  transform = transform.substring(0, transform.indexOf(','));
+  return transform;
 };

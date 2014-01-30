@@ -13,6 +13,11 @@ Word = (function() {
     this.yOrigin = (_ref4 = values.yOrigin) != null ? _ref4 : 0;
   }
 
+  /**
+   * Will return the x's of all the ids when centered
+   */
+
+
   Word.prototype.center = function() {
     var cumWidth, cumWidthLast, elem, widths;
     cumWidth = 0;
